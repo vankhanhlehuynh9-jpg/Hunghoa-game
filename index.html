@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trò Chơi Hứng Hoa</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.15);
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+
+        #basket {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 50px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .item {
+            position: absolute;
+            top: -50px;
+            font-size: 35px;
+            z-index: 3;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .screen h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #FFD700;
+        }
+
+        .screen p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #ff6b81;
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #new-record-text {
+            color: #2ed573;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="score-board">
+            <div>Điểm: <span id="score">0</span></div>
+            <div>Mạng: <span id="lives">❤️❤️❤️</span></div>
+            <div>Kỷ lục: <span id="high-score">0</span></div>
+        </div>
+
+        <div id="basket">🧺</div>
+
+        <div id="start-screen" class="screen">
+            <h1>🌸 Trò Chơi Hứng Hoa 🌸</h1>
+            <p>Hứng hoa thơm (+10đ), né sâu bọ (-1 mạng)!</p>
+            <button id="start-btn">Bắt Đầu Chơi</button>
+        </div>
+
+        <div id="game-over-screen" class="screen hidden">
+            <h1>Kết Thúc Trò Chơi</h1>
+            <p>Điểm của bạn: <span id="final-score">0</span></p>
+            <p id="new-record-text" class="hidden">🎉 Chúc mừng bạn đã phá kỷ lục mới! 🎉</p>
+            <button id="restart-btn">Chơi Lại</button>
+        </div>
+    </div>
+
+    <script>
+        const basket = document.getElementById('basket');
+        const gameContainer = document.querySelector('.game-container');
+        const scoreDisplay = document.getElementById('score');
+        const livesDisplay = document.getElementById('lives');
+        const highScoreDisplay = document.getElementById('high-score');
+
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const newRecordText = document.getElementById('new-record-text');
+
+        let score = 0;
+        let lives = 3;
+        let highScore = localStorage.getItem('flowerHighScore') || 0;
+        let spawnerInterval;
+        let isPlaying = false;
+        let basketX = gameContainer.offsetWidth / 2 - 25;
+
+        highScoreDisplay.textContent = highScore;
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isPlaying) return;
+            const rect = gameContainer.getBoundingClientRect();
+            basketX = e.clientX - rect.left - 25;
+            updateBasketPosition();
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isPlaying) return;
+            const rect = gameContainer.getBoundingClientRect();
+            basketX = e.touches[0].clientX - rect.left - 25;
+            updateBasketPosition();
+        });
+
+        function updateBasketPosition() {
+            if (basketX < 0) basketX = 0;
+            if (basketX > gameContainer.offsetWidth - 50) basketX = gameContainer.offsetWidth - 50;
+            basket.style.left = basketX + 'px';
+        }
+
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+        function startGame() {
+            score = 0;
+            lives = 3;
+            scoreDisplay.textContent = score;
+            livesDisplay.textContent = '❤️❤️❤️';
+            
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            document.querySelectorAll('.item').forEach(el => el.remove());
+
+            isPlaying = true;
+            spawnerInterval = setInterval(createFallingItem, 700);
+        }
+
+        function createFallingItem() {
+            if (!isPlaying) return;
+
+            const item = document.createElement('div');
+            item.classList.add('item');
+
+            const isBug = Math.random() < 0.25;
+            item.innerHTML = isBug ? '🐛' : (Math.random() < 0.3 ? '🌻' : '🌸');
+
+            const randomX = Math.random() * (gameContainer.offsetWidth - 40);
+            item.style.left = randomX + 'px';
+            gameContainer.appendChild(item);
+
+            let itemY = -50;
+            let fallSpeed = 2.5 + Math.random() * 2.5;
+
+            const fall = setInterval(() => {
+                if (!isPlaying) {
+                    clearInterval(fall);
+                    item.remove();
+                    return;
+                }
+
+                itemY += fallSpeed;
+                item.style.top = itemY + 'px';
+
+                const basketRect = basket.getBoundingClientRect();
+                const itemRect = item.getBoundingClientRect();
+
+                if (
+                    itemRect.bottom >= basketRect.top &&
+                    itemRect.top <= basketRect.bottom &&
+                    itemRect.right >= basketRect.left &&
+                    itemRect.left <= basketRect.right
+                ) {
+                    if (isBug) {
+                        lives--;
+                        updateLivesDisplay();
+                        if (lives <= 0) {
+                            endGame();
+                        }
+                    } else {
+                        score += (item.innerHTML === '🌻' ? 20 : 10);
+                        scoreDisplay.textContent = score;
+                    }
+                    item.remove();
+                    clearInterval(fall);
+                }
+
+                if (itemY > gameContainer.offsetHeight) {
+                    item.remove();
+                    clearInterval(fall);
+                }
+            }, 20);
+        }
+
+        function updateLivesDisplay() {
+            let hearts = '';
+            for (let i = 0; i < lives; i++) {
+                hearts += '❤️';
+            }
+            livesDisplay.textContent = hearts;
+        }
+
+        function endGame() {
+            isPlaying = false;
+            clearInterval(spawnerInterval);
+
+            finalScoreDisplay.textContent = score;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('flowerHighScore', highScore);
+                highScoreDisplay.textContent = highScore;
+                newRecordText.classList.remove('hidden');
+            } else {
+                newRecordText.classList.add('hidden');
+            }
+
+            gameOverScreen.classList.remove('hidden');
+        }
+    </script>
+</body>
+  </html>
